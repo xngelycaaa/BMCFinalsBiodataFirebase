@@ -1,6 +1,16 @@
-import 'package:flutter/material.dart';
 
-void main() {
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const BioDataApp());
 }
 
@@ -14,6 +24,7 @@ class BioDataApp extends StatelessWidget {
       title: 'Bio Data',
       theme: ThemeData(
         primarySwatch: Colors.teal,
+        scaffoldBackgroundColor: Colors.white,
       ),
       home: const BioDataScreen(),
     );
@@ -30,7 +41,9 @@ class BioDataScreen extends StatefulWidget {
 class _BioDataScreenState extends State<BioDataScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Text Controllers - Personal Details
+  bool _isSaving = false;
+
+  // Personal Details
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -38,22 +51,171 @@ class _BioDataScreenState extends State<BioDataScreen> {
   final _dobController = TextEditingController();
   final _genderController = TextEditingController();
 
-  // Text Controllers - Educational Background
+  // Educational Background
   final _elemController = TextEditingController();
   final _jhsController = TextEditingController();
   final _shsController = TextEditingController();
   final _collegeController = TextEditingController();
 
-  // Text Controllers - Family Background
+  // Family Background
   final _fatherController = TextEditingController();
   final _motherController = TextEditingController();
   final _siblingsController = TextEditingController();
 
-  // Text Controllers - Character References
+  // Character References
   final _ref1NameController = TextEditingController();
   final _ref1ContactController = TextEditingController();
   final _ref2NameController = TextEditingController();
   final _ref2ContactController = TextEditingController();
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _dobController.dispose();
+    _genderController.dispose();
+
+    _elemController.dispose();
+    _jhsController.dispose();
+    _shsController.dispose();
+    _collegeController.dispose();
+
+    _fatherController.dispose();
+    _motherController.dispose();
+    _siblingsController.dispose();
+
+    _ref1NameController.dispose();
+    _ref1ContactController.dispose();
+    _ref2NameController.dispose();
+    _ref2ContactController.dispose();
+
+    super.dispose();
+  }
+
+  Future<void> _submitBioData() async {
+    if (_formKey.currentState == null ||
+        !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance.collection('biodata').add({
+        'fullName': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'address': _addressController.text.trim(),
+        'dateOfBirth': _dobController.text.trim(),
+        'gender': _genderController.text.trim(),
+
+        'elementary': _elemController.text.trim(),
+        'juniorHighSchool': _jhsController.text.trim(),
+        'seniorHighSchool': _shsController.text.trim(),
+        'college': _collegeController.text.trim(),
+
+        'father': _fatherController.text.trim(),
+        'mother': _motherController.text.trim(),
+        'siblings': _siblingsController.text.trim(),
+
+        'reference1Name': _ref1NameController.text.trim(),
+        'reference1Contact': _ref1ContactController.text.trim(),
+        'reference2Name': _ref2NameController.text.trim(),
+        'reference2Contact': _ref2ContactController.text.trim(),
+
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bio data saved successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Bio Data Submitted'),
+          content: const Text(
+            'Your bio data has been saved to Firebase successfully.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to save bio data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 10),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF2C5E64),
+        ),
+      ),
+    );
+  }
+
+  Widget _textField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    int maxLines = 1,
+    bool requiredField = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          prefixIcon: Icon(icon),
+        ),
+        validator: requiredField
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter $label';
+                }
+                return null;
+              }
+            : null,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,272 +223,147 @@ class _BioDataScreenState extends State<BioDataScreen> {
       appBar: AppBar(
         title: const Text('Bio Data'),
         backgroundColor: const Color(0xFF2C5E64),
+        foregroundColor: Colors.white,
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // --- PERSONAL DETAILS SECTION ---
-                const Text(
-                  'Personal Details',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C5E64)),
-                ),
-                const SizedBox(height: 10),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _sectionTitle('Personal Details'),
 
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
+                  _textField(
+                    controller: _nameController,
+                    label: 'Full Name',
+                    icon: Icons.person,
+                    requiredField: true,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.email),
+                  _textField(
+                    controller: _emailController,
+                    label: 'Email Address',
+                    icon: Icons.email,
+                    keyboardType: TextInputType.emailAddress,
+                    requiredField: true,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Contact Number',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone),
+                  _textField(
+                    controller: _phoneController,
+                    label: 'Contact Number',
+                    icon: Icons.phone,
+                    keyboardType: TextInputType.phone,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.home),
+                  _textField(
+                    controller: _addressController,
+                    label: 'Address',
+                    icon: Icons.home,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _dobController,
-                  decoration: const InputDecoration(
-                    labelText: 'Date of Birth (DD/MM/YYYY)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.calendar_today),
+                  _textField(
+                    controller: _dobController,
+                    label: 'Date of Birth (DD/MM/YYYY)',
+                    icon: Icons.calendar_today,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _genderController,
-                  decoration: const InputDecoration(
-                    labelText: 'Gender',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.people),
+                  _textField(
+                    controller: _genderController,
+                    label: 'Gender',
+                    icon: Icons.people,
                   ),
-                ),
-                const SizedBox(height: 20),
 
-                // --- EDUCATIONAL BACKGROUND SECTION ---
-                const Text(
-                  'Educational Background',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C5E64)),
-                ),
-                const SizedBox(height: 10),
+                  _sectionTitle('Educational Background'),
 
-                TextFormField(
-                  controller: _elemController,
-                  decoration: const InputDecoration(
-                    labelText: 'Elementary School',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.school),
+                  _textField(
+                    controller: _elemController,
+                    label: 'Elementary School',
+                    icon: Icons.school,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _jhsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Junior High School',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.school),
+                  _textField(
+                    controller: _jhsController,
+                    label: 'Junior High School',
+                    icon: Icons.school,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _shsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Senior High School (Track/Strand)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.school),
+                  _textField(
+                    controller: _shsController,
+                    label: 'Senior High School (Track/Strand)',
+                    icon: Icons.school,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _collegeController,
-                  decoration: const InputDecoration(
-                    labelText: 'College / Course',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.school),
+                  _textField(
+                    controller: _collegeController,
+                    label: 'College / Course',
+                    icon: Icons.school,
                   ),
-                ),
-                const SizedBox(height: 20),
 
-                // --- FAMILY BACKGROUND SECTION ---
-                const Text(
-                  'Family Background',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C5E64)),
-                ),
-                const SizedBox(height: 10),
+                  _sectionTitle('Family Background'),
 
-                TextFormField(
-                  controller: _fatherController,
-                  decoration: const InputDecoration(
-                    labelText: "Father's Name & Occupation",
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.family_restroom),
+                  _textField(
+                    controller: _fatherController,
+                    label: "Father's Name & Occupation",
+                    icon: Icons.family_restroom,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _motherController,
-                  decoration: const InputDecoration(
-                    labelText: "Mother's Name & Occupation",
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.family_restroom),
+                  _textField(
+                    controller: _motherController,
+                    label: "Mother's Name & Occupation",
+                    icon: Icons.family_restroom,
                   ),
-                ),
-                const SizedBox(height: 10),
-
-                TextFormField(
-                  controller: _siblingsController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Sibling(s) Name(s)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.group),
+                  _textField(
+                    controller: _siblingsController,
+                    label: 'Sibling(s) Name(s)',
+                    icon: Icons.group,
+                    maxLines: 2,
                   ),
-                ),
-                const SizedBox(height: 20),
 
-                // --- CHARACTER REFERENCES SECTION ---
-                const Text(
-                  'Character References',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C5E64)),
-                ),
-                const SizedBox(height: 10),
+                  _sectionTitle('Character References'),
 
-                TextFormField(
-                  controller: _ref1NameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Reference 1 (Name & Position)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
+                  _textField(
+                    controller: _ref1NameController,
+                    label: 'Reference 1 (Name & Position)',
+                    icon: Icons.person_outline,
                   ),
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _ref1ContactController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Reference 1 Contact Number',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_outlined),
+                  _textField(
+                    controller: _ref1ContactController,
+                    label: 'Reference 1 Contact Number',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
                   ),
-                ),
-                const SizedBox(height: 12),
-
-                TextFormField(
-                  controller: _ref2NameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Reference 2 (Name & Position)',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person_outline),
+                  _textField(
+                    controller: _ref2NameController,
+                    label: 'Reference 2 (Name & Position)',
+                    icon: Icons.person_outline,
                   ),
-                ),
-                const SizedBox(height: 8),
-
-                TextFormField(
-                  controller: _ref2ContactController,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Reference 2 Contact Number',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.phone_outlined),
+                  _textField(
+                    controller: _ref2ContactController,
+                    label: 'Reference 2 Contact Number',
+                    icon: Icons.phone_outlined,
+                    keyboardType: TextInputType.phone,
                   ),
-                ),
-                const SizedBox(height: 25),
 
-                // --- SUBMIT BUTTON ---
-                ElevatedButton(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Bio Data Submitted'),
-                        content: SingleChildScrollView(
-                          child: ListBody(
-                            children: [
-                              Text('Name: ${_nameController.text}'),
-                              Text('Email: ${_emailController.text}'),
-                              Text('Phone: ${_phoneController.text}'),
-                              Text('Address: ${_addressController.text}'),
-                              Text('DOB: ${_dobController.text}'),
-                              Text('Gender: ${_genderController.text}'),
-                              const Divider(),
-                              const Text('Education:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text('Elementary: ${_elemController.text}'),
-                              Text('JHS: ${_jhsController.text}'),
-                              Text('SHS: ${_shsController.text}'),
-                              Text('College: ${_collegeController.text}'),
-                              const Divider(),
-                              const Text('Family:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text('Father: ${_fatherController.text}'),
-                              Text('Mother: ${_motherController.text}'),
-                              Text('Siblings: ${_siblingsController.text}'),
-                              const Divider(),
-                              const Text('References:', style: TextStyle(fontWeight: FontWeight.bold)),
-                              Text('1. ${_ref1NameController.text} (${_ref1ContactController.text})'),
-                              Text('2. ${_ref2NameController.text} (${_ref2ContactController.text})'),
-                            ],
+                  const SizedBox(height: 15),
+
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _submitBioData,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2C5E64),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            'Submit Bio Data',
+                            style: TextStyle(fontSize: 16),
                           ),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2C5E64),
-                    padding: const EdgeInsets.symmetric(vertical: 15),
                   ),
-                  child: const Text(
-                    'Submit Bio Data',
-                    style: TextStyle(fontSize: 16, color: Colors.white),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
